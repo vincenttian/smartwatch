@@ -98,7 +98,7 @@ module.exports = function(app, passport) {
 
     // send to google to do the authentication
     app.get('/auth/google', passport.authenticate('google', {
-        scope: ['profile', 'email']
+        scope: ['profile', 'email', 'openid', 'https://www.googleapis.com/auth/calendar']
     }));
 
     // the callback after google has authenticated the user

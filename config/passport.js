@@ -251,6 +251,44 @@ module.exports = function(passport) {
             // asynchronous
             process.nextTick(function() {
                 // check if the user is already logged in
+                
+
+                var gcal = require('google-calendar');
+                var google_calendar = new gcal.GoogleCalendar(token);
+
+                // get all calendar id's
+                google_calendar.calendarList.list(function(err, calendarList) {
+                    // for (var i=0; i<calendarList['items'].length; i++) {
+                    for (var i=0; i<1; i++) {
+                        var cal = calendarList['items'][i];
+                        var calId = cal['id']
+
+                        // get events of particular calendar id
+                        google_calendar.events.list(calId, function(err, eventList) {
+                            // for (var j=0; j<eventList['items'].length; j++) {
+                            for (var j=0; j<1; j++) {
+                                var evnt = eventList['items'][j]
+                                var evntId = evnt['id']
+                                
+                                // get specific event
+                                google_calendar.events.get(calId, evntId, function(err, evnt) {
+                                    var keys = Object.keys(evnt);
+                                    var dateTime = (evnt['start']['dateTime']);
+                                    var location = (evnt['location']);
+                                    var status = (evnt['status']);
+                                    var summary = (evnt['summary']);
+                                    console.log(dateTime);
+                                    console.log(location);
+                                    console.log(status);
+                                    console.log(summary);
+                                    return 1/0; 
+                                })
+                            }
+                        });
+                    }
+                });
+
+
                 if (!req.user) {
                     User.findOne({
                         'google.id': profile.id
