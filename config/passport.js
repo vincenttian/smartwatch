@@ -6,6 +6,8 @@ var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 
 // load up the user model
 var User = require('../app/models/user');
+var Calendar = require('../app/models/calendar');
+var Event = require('../app/models/event');
 
 // load the auth variables
 var configAuth = require('./auth'); // use this one for testing
@@ -250,45 +252,8 @@ module.exports = function(passport) {
         function(req, token, refreshToken, profile, done) {
             // asynchronous
             process.nextTick(function() {
-                // check if the user is already logged in
                 
-
-                var gcal = require('google-calendar');
-                var google_calendar = new gcal.GoogleCalendar(token);
-
-                // get all calendar id's
-                google_calendar.calendarList.list(function(err, calendarList) {
-                    // for (var i=0; i<calendarList['items'].length; i++) {
-                    for (var i=0; i<1; i++) {
-                        var cal = calendarList['items'][i];
-                        var calId = cal['id']
-
-                        // get events of particular calendar id
-                        google_calendar.events.list(calId, function(err, eventList) {
-                            // for (var j=0; j<eventList['items'].length; j++) {
-                            for (var j=0; j<1; j++) {
-                                var evnt = eventList['items'][j]
-                                var evntId = evnt['id']
-                                
-                                // get specific event
-                                google_calendar.events.get(calId, evntId, function(err, evnt) {
-                                    var keys = Object.keys(evnt);
-                                    var dateTime = (evnt['start']['dateTime']);
-                                    var location = (evnt['location']);
-                                    var status = (evnt['status']);
-                                    var summary = (evnt['summary']);
-                                    console.log(dateTime);
-                                    console.log(location);
-                                    console.log(status);
-                                    console.log(summary);
-                                    return 1/0; 
-                                })
-                            }
-                        });
-                    }
-                });
-
-
+                // check if the user is already logged in
                 if (!req.user) {
                     User.findOne({
                         'google.id': profile.id
@@ -309,15 +274,79 @@ module.exports = function(passport) {
                             }
                             return done(null, user);
                         } else {
+                            
+                            // new user
+                            var gcal = require('google-calendar');
+                            var google_calendar = new gcal.GoogleCalendar(token);
+
                             var newUser = new User();
-                            newUser.google.id = profile.id;
+                            newUser.google.id = profile['id'];
+                            newUser.google.email = profile['_json']['email'];
                             newUser.google.token = token;
-                            newUser.google.name = profile.displayName;
-                            newUser.google.email = (profile.emails[0].value || '').toLowerCase(); // pull the first email
+                            newUser.google.name = profile['_json']['name'];
                             newUser.save(function(err) {
-                                if (err)
-                                    throw err;
-                                return done(null, newUser);
+                                if (err) throw err;
+
+                                // get all calendar id's
+                                google_calendar.calendarList.list(function(err, calendarList) {
+                                    for (var i=0; i<calendarList['items'].length; i++) {
+                                    // for (var i=0; i<1; i++) {
+                                        var cal = calendarList['items'][i];
+                                        var calId = cal['id'];
+                                        var calName = cal['summary'];
+
+                                        var newCalendar = new Calendar();
+                                        newCalendar.id = calId;
+                                        newCalendar.name = calName;
+                                        newCalendar.user = newUser;
+
+                                        newCalendar.save(function(err) {
+                                            if (err) throw err;
+
+                                            // get events of particular calendar id
+                                            google_calendar.events.list(calId, function(err, eventList) {
+                                                for (var j=0; j<eventList['items'].length; j++) {
+                                                // for (var j=0; j<1; j++) {
+
+                                                    var evnt = eventList['items'][j]
+                                                    var evntId = evnt['id']
+
+                                                    // get specific event
+                                                    google_calendar.events.get(calId, evntId, function(err, evnt) {
+                                                        
+                                                        try {
+                                                            var keys = Object.keys(evnt);
+                                                            var dateTime = (evnt['start']['dateTime']);
+                                                            var location = (evnt['location']);
+                                                            var status = (evnt['status']);
+                                                            var summary = (evnt['summary']);
+                                                            // console.log(dateTime);
+                                                            // console.log(location);
+                                                            // console.log(status);
+                                                            // console.log(summary);
+
+                                                            var newEvent = new Event();
+                                                            newEvent.startTime = dateTime;
+                                                            newEvent.location = location;
+                                                            newEvent.status = status;
+                                                            newEvent.summary = summary;
+                                                            newEvent.calendar = newCalendar;
+
+
+                                                            newEvent.save(function(err) {
+                                                                if (err) throw err;
+                                                                // all events and calendars are created
+                                                                return done(null, newUser);
+                                                            });
+                                                        } catch (Error) {
+                                                            // continue;
+                                                        }
+                                                    })
+                                                }
+                                            });
+                                        });
+                                    }
+                                });
                             });
                         }
                     });
